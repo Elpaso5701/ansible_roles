@@ -68,15 +68,7 @@
     curl -sS https://getcomposer.org/installer | php && mv composer.phar /usr/local/bin/composer
   args:
     executable: /bin/bash
-
-- name: Clone Laravel repository and configure environment
-  block:
-    - name: Git clone Laravel
-      git:
-        repo: "https://github.com/Practical-DevOps/app-for-devops.git"
-        dest: "/var/www/html/app-for-devops"
-        clone: yes
-
+    
     - name: Rename .env.example to .env
       command: mv /var/www/html/app-for-devops/.env.example /var/www/html/app-for-devops/.env
 
