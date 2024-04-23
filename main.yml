@@ -1,166 +1,104 @@
-- name: Install and configure Apache and MariaDB servers
+- name: Install and configure Apache and PostgreSQL servers
   hosts: server:db
   become: yes
-
-  roles:
-    - role: server
-      when: "'server' in group_names"
-
-    - role: db
-      when: "'db' in group_names"
-
   vars:
     db_host: "{{ db_host }}"
     db_name: "{{ db_name }}"
     db_user: "{{ db_user }}"
     db_pass: "{{ db_pass }}"
+  roles:
+    - role: server
+    - role: db
 
-  tasks:
-    - name: Install MySQL Python module and MariaDB server
-      block:
-        - name: Install MySQL Python module
-          pip:
-            name: mysqlclient
-          become: yes
-          when: "'db' in group_names"
+    - name: Install PostgreSQL client library
+  apt:
+    name: libpq-dev
+    state: present
 
-        - name: Install MariaDB server
-          apt:
-            name: mariadb-server
-            state: present
-          when: "'db' in group_names"
+- name: Install PostgreSQL server
+  apt:
+    name: postgresql
+    state: present
 
-        - name: Start and enable MariaDB service
-          service:
-            name: mariadb
-            state: started
-            enabled: yes
-          when: "'db' in group_names"
+- name: Ensure PostgreSQL service is running and enabled
+  service:
+    name: postgresql
+    state: started
+    enabled: yes
 
-        - name: Create database
-          mysql_db:
-            name: "{{ db_name }}"
-            state: present
-            login_host: "{{ db_host }}"
-            login_user: root
-            login_password: "{{ db_pass }}"
-          when: "'db' in group_names"
+- name: Create PostgreSQL database
+  postgresql_db:
+    name: "{{ db_name }}"
+    state: present
+    login_user: postgres
+    login_password: ""
+    login_host: "{{ db_host }}"
+    login_unix_socket: /var/run/postgresql
 
-        - name: Grant access to root from specific host
-          mysql_user:
-            name: "{{ db_user }}"
-            host: "{{ db_host }}"
-            password: "{{ db_pass }}"
-            priv: "*.*:ALL"
-            state: present
-          when: "'db' in group_names"
+- name: Create PostgreSQL user
+  postgresql_user:
+    name: "{{ db_user }}"
+    password: "{{ db_pass }}"
+    login_user: postgres
+    login_password: ""
+    login_host: "{{ db_host }}"
+    login_unix_socket: /var/run/postgresql
+Role: server/tasks/main.yml
 
-    - name: Update apt cache and install Apache web server
-      apt:
-        name: "{{ item }}"
-        state: present
-      loop:
-        - apache2
-        - libapache2-mod-php
-        - php
-        - php-mysql
-        - php-curl
-        - php-json
-        - php-mbstring
-        - nodejs
-        - npm
-      when: "'server' in group_names"
+yaml
+Copy code
+---
+- name: Update apt cache and install Apache web server
+  apt:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - apache2
+    - libapache2-mod-php
+    - php
+    - php-mysql
+    - php-curl
+    - php-json
+    - php-mbstring
+    - nodejs
+    - npm
 
-    - name: Install Composer
-      shell: >
-        curl -sS https://getcomposer.org/installer | php && mv composer.phar /usr/local/bin/composer
+- name: Install Composer
+  shell: >
+    curl -sS https://getcomposer.org/installer | php && mv composer.phar /usr/local/bin/composer
+  args:
+    executable: /bin/bash
+
+- name: Clone Laravel repository and configure environment
+  block:
+    - name: Git clone Laravel
+      git:
+        repo: "https://github.com/Practical-DevOps/app-for-devops.git"
+        dest: "/var/www/html/app-for-devops"
+        clone: yes
+
+    - name: Rename .env.example to .env
+      command: mv /var/www/html/app-for-devops/.env.example /var/www/html/app-for-devops/.env
+
+    - name: Update .env file with database credentials
+      ansible.builtin.blockinfile:
+        path: /var/www/html/app-for-devops/.env
+        block: |
+          DB_HOST={{ db_host }}
+          DB_DATABASE={{ db_name }}
+          DB_USERNAME={{ db_user }}
+          DB_PASSWORD={{ db_pass }}
+        marker: "# {mark} Ansible managed block"
+        create: yes
+
+    - name: Change ownership of Laravel app directory
+      ansible.builtin.file:
+        path: /var/www/html/app-for-devops
+        owner: www-data
+        group: www-data
+        recurse: yes
+
+    - name: Composer install
+      command: composer install
       args:
-        executable: /bin/bash
-      when: "'server' in group_names"
-
-    - name: Clone Laravel repository and configure environment
-      block:
-        - name: Git clone Laravel
-          git:
-            repo: "https://github.com/Practical-DevOps/app-for-devops.git"
-            dest: "/var/www/html/app-for-devops"
-            clone: yes
-
-        - name: Rename .env.example to .env
-          command: mv /var/www/html/app-for-devops/.env.example /var/www/html/app-for-devops/.env
-
-        - name: Update .env file with database credentials
-          ansible.builtin.blockinfile:
-            path: /var/www/html/app-for-devops/.env
-            block: |
-              DB_HOST={{ db_host }}
-              DB_DATABASE={{ db_name }}
-              DB_USERNAME={{ db_user }}
-              DB_PASSWORD={{ db_pass }}
-            marker: "# {mark} Ansible managed block"
-            create: yes
-
-        - name: Change ownership of Laravel app directory
-          ansible.builtin.file:
-            path: /var/www/html/app-for-devops
-            owner: www-data
-            group: www-data
-            recurse: yes
-
-        - name: Composer install
-          command: composer install
-          args:
-            chdir: /var/www/html/app-for-devops
-      when: "'server' in group_names"
-
-    - name: Run application tasks
-      block:
-        - name: Generate application key
-          command: php artisan key:generate
-          args:
-            chdir: /var/www/html/app-for-devops
-
-        - name: Run database migrations
-          command: php artisan migrate --force
-          args:
-            chdir: /var/www/html/app-for-devops
-
-        - name: Install frontend dependencies via NPM
-          command: npm install
-          args:
-            chdir: /var/www/html/app-for-devops
-
-        - name: Build application assets
-          command: npm run build
-          args:
-            chdir: /var/www/html/app-for-devops
-
-        - name: Add apache configuration
-          template:
-            src: laravel.conf
-            dest: /etc/apache2/sites-available/laravel.conf
-
-        - name: Disable default Apache site
-          command: a2dissite 000-default.conf
-          become: yes
-
-        - name: Enable Apache rewrite module
-          command: a2enmod rewrite
-          become: yes
-
-        - name: Enable Laravel site
-          command: a2ensite laravel.conf
-          become: yes
-
-        - name: Reload Apache configuration
-          service:
-            name: apache2
-            state: reloaded
-          become: yes
-      when: "'server' in group_names"
-
-  handlers:
-    - name: restart apache
-      service:
-        name: apache2
-        state: restarted
+        chdir: /var/www/html/app-for-devops
