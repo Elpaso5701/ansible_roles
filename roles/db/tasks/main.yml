@@ -1,0 +1,33 @@
+- name: Install PostgreSQL client library
+  apt:
+    name: libpq-dev
+    state: present
+
+- name: Install PostgreSQL server
+  apt:
+    name: postgresql
+    state: present
+
+- name: Ensure PostgreSQL service is running and enabled
+  service:
+    name: postgresql
+    state: started
+    enabled: yes
+
+- name: Create PostgreSQL database
+  postgresql_db:
+    name: "{{ db_name }}"
+    state: present
+    login_user: postgres
+    login_password: ""
+    login_host: "{{ db_host }}"
+    login_unix_socket: /var/run/postgresql
+
+- name: Create PostgreSQL user
+  postgresql_user:
+    name: "{{ db_user }}"
+    password: "{{ db_pass }}"
+    login_user: postgres
+    login_password: ""
+    login_host: "{{ db_host }}"
+    login_unix_socket: /var/run/postgresql
