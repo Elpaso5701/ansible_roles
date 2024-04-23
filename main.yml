@@ -1,11 +1,20 @@
 - name: Install and configure Apache and MariaDB servers
   hosts: server:db
   become: yes
+
+  roles:
+    - role: server
+      when: "'server' in group_names"
+
+    - role: db
+      when: "'db' in group_names"
+
   vars:
     db_host: "{{ db_host }}"
     db_name: "{{ db_name }}"
     db_user: "{{ db_user }}"
     db_pass: "{{ db_pass }}"
+
   tasks:
     - name: Install MySQL Python module and MariaDB server
       block:
@@ -13,17 +22,20 @@
           pip:
             name: mysqlclient
           become: yes
+          when: "'db' in group_names"
 
         - name: Install MariaDB server
           apt:
             name: mariadb-server
             state: present
+          when: "'db' in group_names"
 
         - name: Start and enable MariaDB service
           service:
             name: mariadb
             state: started
             enabled: yes
+          when: "'db' in group_names"
 
         - name: Create database
           mysql_db:
@@ -32,6 +44,7 @@
             login_host: "{{ db_host }}"
             login_user: root
             login_password: "{{ db_pass }}"
+          when: "'db' in group_names"
 
         - name: Grant access to root from specific host
           mysql_user:
@@ -40,7 +53,7 @@
             password: "{{ db_pass }}"
             priv: "*.*:ALL"
             state: present
-      when: "'db' in group_names"
+          when: "'db' in group_names"
 
     - name: Update apt cache and install Apache web server
       apt:
@@ -150,4 +163,4 @@
     - name: restart apache
       service:
         name: apache2
-        state: restarted---
+        state: restarted
