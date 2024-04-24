@@ -28,11 +28,12 @@
     login_host: "{{ db_host }}"
     login_unix_socket: /var/run/postgresql
 
-- name: Create PostgreSQL user
+- name: Connect to database and remove test user privileges from there
   postgresql_user:
+    db: "{{ db_name }}"
     name: "{{ db_user }}"
     password: "{{ db_pass }}"
-    login_user: postgres
-    login_password: "{{ db_pass }}"
-    login_host: "{{ db_host }}"
-    login_unix_socket: /var/run/postgresql
+    priv: "*.*:ALL"
+    state: present
+    become: yes
+  
