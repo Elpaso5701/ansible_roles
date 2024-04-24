@@ -37,3 +37,24 @@
     priv: "*.*:ALL"
     state: present
   become: yes
+
+   - name: Install Composer
+      shell: >
+        curl -sS https://getcomposer.org/installer | php && mv composer.phar /usr/local/bin/composer
+      args:
+        executable: /bin/bash
+    
+    - name: Rename .env.example to .env
+      command: mv /var/www/html/app-for-devops/.env.example /var/www/html/app-for-devops/.env
+      become: yes
+
+    - name: Update .env file with database credentials
+      ansible.builtin.blockinfile:
+        path: /var/www/html/app-for-devops/.env
+        block: |
+          DB_HOST={{ db_host }}
+          DB_DATABASE={{ db_name }}
+          DB_USERNAME={{ db_user }}
+          DB_PASSWORD={{ db_pass }}
+        marker: "# {mark} Ansible managed block"
+        create: yes
