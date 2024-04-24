@@ -31,6 +31,15 @@
     login_unix_socket: /var/run/postgresql
   become: yes
 
+- name: Получить версию PostgreSQL
+  ansible.builtin.command: psql --version
+  register: postgres_version
+  changed_when: false
+  check_mode: no
+
+- debug:
+    var: postgres_version.stdout
+
 - name: Connect to database and remove test user privileges from there
   postgresql_user:
     db: "{{ db_name }}"
