@@ -40,7 +40,7 @@
   become: yes
   
 handlers:
-  - name: restart postgresql
-    ansible.builtin.service:
-      name: postgresql
-      state: restarted
+- name: restart postgresql
+   ansible.builtin.service:
+   name: postgresql
+   state: restarted
