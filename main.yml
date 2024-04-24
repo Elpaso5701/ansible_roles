@@ -1,11 +1,7 @@
 - name: Install and configure Apache and PostgreSQL servers
   hosts: server:db
   become: yes
-  vars:
-    db_host: "{{ db.some.net }}"
-    db_name: "{{ app_db }}"
-    db_user: "{{ app_user }}"
-    db_pass: "{{ app_pass }}"
+
   roles:
     - role: server
     - role: db
