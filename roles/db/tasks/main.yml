@@ -26,7 +26,7 @@
     login_user: postgres
     login_password: "{{ db_pass }}"
     login_host: "localhost"
-    # login_unix_socket: /var/run/postgresql
+    login_unix_socket: /var/run/postgresql
   become: yes
 
 - name: Connect to database and remove test user privileges from there
