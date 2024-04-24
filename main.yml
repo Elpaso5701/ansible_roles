@@ -1,43 +1,8 @@
 ---
-- hosts: db
-  become: yes
-  tasks:
-    - name: Start message
-      debug:
-        msg: 'Create task to install and prepare DB server'
-
-    - name: Install PostgreSQL
-      apt:
-        name:
-          - postgresql
-          - postgresql-contrib
-          - python3-psycopg2
-        update_cache: yes
-
-    - name: Ensure PostgreSQL service is started and enabled
-      service:
-        name: postgresql
-        state: started
-        enabled: yes
-
-    - name: Create database
-      postgresql_db:
-        name: "{{ db_name }}"
-        state: present
-
-    - name: Create database user
-      postgresql_user:
-        name: "{{ db_user }}"
-        password: "{{ db_pass }}"
-        role_attr_flags: CREATEDB,CREATEROLE
-        login_host: localhost
-        login_user: postgres
-      tags: postgresql_user
-
-- hosts: server
+- name: Install and configure Apache server with the application and PostgreSQL server
+  hosts: server:db
   become: true
   vars:
-    domain: app-for-devops
     app_path: /var/www/app-for-devops
   tasks:
     - name: Update apt cache
@@ -48,6 +13,7 @@
       apt:
         name: apache2
         state: present
+      when: "'server' in group_names"
 
     - name: Install PHP and required modules
       apt:
@@ -61,6 +27,7 @@
           - php-json
           - composer
         state: present
+      when: "'server' in group_names"
 
     - name: Clone application repository
       git:
@@ -68,20 +35,8 @@
         dest: "{{ app_path }}"
         force: yes
         version: main
+      when: "'server' in group_names"
 
-    - name: Run composer install
-      command: composer install 
-      args:
-        chdir: "{{ app_path }}"
-
-    - name: Copy .env.example to .env
-      command: cp {{ app_path }}/.env.example {{ app_path }}/.env
-
-    - name: Generate application key
-      command: php artisan key:generate
-      args:
-        chdir: "{{ app_path }}"
-    
     - name: Set DB connection details in .env file
       lineinfile:
         dest: "{{ app_path }}/.env"
@@ -89,16 +44,12 @@
         line: 'DB_{{ item.key }}={{ item.value }}'
       loop:
         - { key: 'CONNECTION', value: 'pgsql' }
-        - { key: 'HOST', value: 'localhost' }
+        - { key: 'HOST', value: '{{ db_host }}' }
         - { key: 'PORT', value: '5432' }
         - { key: 'DATABASE', value: '{{ db_name }}' }
         - { key: 'USERNAME', value: '{{ db_user }}' }
         - { key: 'PASSWORD', value: '{{ db_pass }}' }
-
-    - name: Run database migrations
-      command: php artisan migrate
-      args:
-        chdir: "{{ app_path }}"
+      when: "'server' in group_names"
 
     - name: Set permissions for user www-data
       ansible.builtin.file:
@@ -107,6 +58,7 @@
         group: www-data
         mode: 0755
         recurse: yes
+      when: "'server' in group_names"
 
     - name: Enable mod_rewrite
       apache2_module:
@@ -114,28 +66,38 @@
         name: rewrite
       notify:
         - restart apache2
-        
-    - name: Create virtual host file
-      template: src=virtualhost.conf dest=/etc/apache2/sites-available/000-default.conf
-      notify:
-        - restart apache2
+      when: "'server' in group_names"
 
-    - name: Install Node.js and NPM
+    - name: Install PostgreSQL
       apt:
         name:
-          - nodejs
-          - npm
+          - postgresql
+          - postgresql-contrib
+          - python3-psycopg2
+        update_cache: yes
+      when: "'db' in group_names"
+
+    - name: Ensure PostgreSQL service is started and enabled
+      service:
+        name: postgresql
+        state: started
+        enabled: yes
+      when: "'db' in group_names"
+
+    - name: Create database
+      postgresql_db:
+        name: "{{ db_name }}"
         state: present
+      when: "'db' in group_names"
 
-    - name: Install frontend dependencies
-      npm:
-        path: "{{ app_path }}"
-        state: present     
-
-    - name: Build frontend assets
-      command: npm run build
-      args:
-        chdir: "{{ app_path }}" 
+    - name: Create database user
+      postgresql_user:
+        name: "{{ db_user }}"
+        password: "{{ db_pass }}"
+        role_attr_flags: CREATEDB,CREATEROLE
+        login_host: localhost
+        login_user: postgres
+      when: "'db' in group_names"
 
   handlers:
     - name: restart apache2
