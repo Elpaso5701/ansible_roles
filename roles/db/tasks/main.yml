@@ -2,6 +2,8 @@
   apt:
     name: libpq-dev
     state: present
+# Импорт переменных из файла vars/main.yml
+- include_vars: ../../vars/main.yml
     
 - name: Install Python module
   pip:
