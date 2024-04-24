@@ -2,6 +2,11 @@
   apt:
     name: libpq-dev
     state: present
+    
+- name: Install Python module
+  pip:
+    name: psycopg2
+  become: yes
 
 - name: Install PostgreSQL server
   apt:
@@ -19,15 +24,16 @@
     name: "{{ db_name }}"
     state: present
     login_user: postgres
-    login_password: ""
-    login_host: "{{ db_host }}"
-    login_unix_socket: /var/run/postgresql
+    login_password: "{{ db_pass }}"
+    login_host: "localhost"
+    # login_unix_socket: /var/run/postgresql
+  become: yes
 
-- name: Create PostgreSQL user
+- name: Connect to database and remove test user privileges from there
   postgresql_user:
+    db: "{{ db_name }}"
     name: "{{ db_user }}"
     password: "{{ db_pass }}"
-    login_user: postgres
-    login_password: ""
-    login_host: "{{ db_host }}"
-    login_unix_socket: /var/run/postgresql
+    priv: "*.*:ALL"
+    state: present
+  become: yes
