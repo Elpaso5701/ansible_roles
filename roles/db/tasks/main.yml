@@ -58,9 +58,3 @@
       DB_PASSWORD={{ db_pass }}
     marker: "# {mark} Ansible managed block"
     create: yes
-
-handlers:
-  - name: restart postgresql
-    ansible.builtin.service:
-      name: postgresql
-      state: restarted
