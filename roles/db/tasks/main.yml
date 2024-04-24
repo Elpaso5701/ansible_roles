@@ -37,9 +37,3 @@
     priv: "*.*:ALL"
     state: present
   become: yes
-  
-handlers:
-  - name: restart postgresql
-    ansible.builtin.service:
-      name: postgresql
-      state: restarted
