@@ -1,9 +1,4 @@
- vars:
-    db_host: "{{ db.some.net }}"
-    db_name: "{{ app_db }}"
-    db_user: "{{ app_user }}"
-    db_pass: "{{ app_pass }}"
-    
+   
 - name: Install PostgreSQL client library
   apt:
     name: libpq-dev
@@ -32,7 +27,7 @@
     login_user: postgres
     login_password: "{{ db_pass }}"
     login_host: "localhost"
-    login_unix_socket: /var/run/postgresql
+    # login_unix_socket: /var/run/postgresql
   become: yes
 
 - name: Connect to database and remove test user privileges from there
