@@ -2,6 +2,11 @@
   apt:
     name: libpq-dev
     state: present
+    
+- name: Install Python module
+  pip:
+    name: psycopg2
+  become: yes
 
 - name: Install PostgreSQL server
   apt:
