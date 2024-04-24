@@ -1,22 +1,15 @@
-- name: Install PostgreSQL client library
+- name: Install dependencies for PostgreSQL
   apt:
-    name: libpq-dev
+    name: "{{ item }}"
     state: present
-# Импорт переменных из файла vars/main.yml
-- include_vars: ../vars/main.yml
-    
-- name: Install Python module
-  pip:
-    name: psycopg2
-  become: yes
+  loop:
+    - postgresql
+    - postgresql-contrib
+    - libpq-dev
+    - python3-psycopg2
 
-- name: Install PostgreSQL server
-  apt:
-    name: postgresql
-    state: present
-
-- name: Ensure PostgreSQL service is running and enabled
-  service:
+- name: Start and enable services
+  ansible.builtin.service:
     name: postgresql
     state: started
     enabled: yes
@@ -25,47 +18,23 @@
   postgresql_db:
     name: "{{ db_name }}"
     state: present
-    login_user: postgres
-    login_password: "{{ db_pass }}"
-    login_host: "localhost"
-    login_unix_socket: /var/run/postgresql
-  become: yes
+    login_unix_socket: "{{ login_unix_socket }}"
+  become_user: postgres
 
-- name: Получить версию PostgreSQL
-  ansible.builtin.command: psql --version
-  register: postgres_version
-  changed_when: false
-  check_mode: no
-
-- debug:
-    var: postgres_version.stdout
-
-- name: Connect to database and remove test user privileges from there
+- name: Create database user
   postgresql_user:
-    db: "{{ db_name }}"
     name: "{{ db_user }}"
     password: "{{ db_pass }}"
-    priv: "*.*:ALL"
     state: present
-  become: yes
+    login_unix_socket: "{{ login_unix_socket }}"
+  become_user: postgres
 
-- name: Install Composer
-  shell: >
-    curl -sS https://getcomposer.org/installer | php && mv composer.phar /usr/local/bin/composer
-  args:
-    executable: /bin/bash
-    
-- name: Rename .env.example to .env
-  command: mv /var/www/html/app-for-devops/.env.example /var/www/html/app-for-devops/.env
-  become: yes
-
-- name: Update .env file with database credentials
-  ansible.builtin.blockinfile:
-    path: /var/www/html/app-for-devops/.env
-    block: |
-      DB_HOST={{ db_host }}
-      DB_DATABASE={{ db_name }}
-      DB_USERNAME={{ db_user }}
-      DB_PASSWORD={{ db_pass }}
-    marker: "# {mark} Ansible managed block"
-    create: yes
+- name: Grant database user access to database
+  postgresql_privs:
+    type: database
+    db: "{{ db_name }}"
+    roles: "{{ db_user }}"
+    privs: all
+    login_unix_socket: "{{ login_unix_socket }}"
+  become_user: postgres
+  notify: Restart PostgreSQL
