@@ -1,4 +1,11 @@
+<<<<<<< HEAD
 ---
 db_name: 
 db_user: 
 db_pass:
+=======
+ db_host: "{{ db.some.net }}"
+ db_name: "{{ app_db }}"
+ db_user: "{{ app_user }}"
+ db_pass: "{{ app_pass }}"
+>>>>>>> e9479c2c97ae36b4939b5118e0389d4a23e6b3b2

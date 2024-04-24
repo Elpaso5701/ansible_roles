@@ -3,4 +3,8 @@
   ansible.builtin.service:
     name: postgresql
     state: restarted
+<<<<<<< HEAD
   become: true
+=======
+  become: true
+>>>>>>> e9479c2c97ae36b4939b5118e0389d4a23e6b3b2

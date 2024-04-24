@@ -1,5 +1,14 @@
+<<<<<<< HEAD
 ---
 - name: Restart Apache
   ansible.builtin.service:
     name: apache2
     state: restarted
+=======
+---
+# handlers file for webserver
+- name: Restart Apache
+  ansible.builtin.service:
+    name: apache2
+    state: restarted
+>>>>>>> e9479c2c97ae36b4939b5118e0389d4a23e6b3b2

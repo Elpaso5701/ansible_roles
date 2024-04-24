@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ---
 - name: Add PHP repository
   ansible.builtin.apt_repository:
@@ -107,3 +108,107 @@
   ansible.builtin.command:
     cmd: a2ensite app
   notify: Restart Apache
+=======
+- name: Configure web servers
+  hosts: server
+  tasks: 
+    - name: Install Node.js dependencies
+      apt:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - curl
+        - software-properties-common
+      become: yes
+
+    - name: Import NodeSource GPG key
+      apt_key:
+        url: https://deb.nodesource.com/gpgkey/nodesource.gpg.key
+        state: present
+      become: yes
+
+    - name: Add NodeSource repository
+      apt_repository:
+        repo: "deb https://deb.nodesource.com/node_14.x {{ ansible_distribution_release }} main"
+        state: present
+        update_cache: yes
+        filename: nodesource
+      become: yes
+
+    - name: Install Node.js
+      apt:
+        name: nodejs
+        state: present
+      become: yes
+    
+    - name: Install build-essential
+      apt:
+        name: build-essential
+        state: present
+      become: yes    
+
+    - name: Update apt cache and install Apache web server
+      apt:
+        name: "{{ item }}"
+        state: latest
+      loop:
+        - apache2
+        - libapache2-mod-php
+        - php
+        - php-mysql
+        - php-curl
+        - php-json
+        - php-mbstring 
+        - composer
+        - php-xml
+      become: yes
+ - name: Run application tasks
+      block:
+        - name: Generate application key
+          command: php artisan key:generate
+          args:
+            chdir: /var/www/html/app-for-devops
+          
+
+        - name: Run database migrations
+          command: php artisan migrate --force
+          args:
+            chdir: /var/www/html/app-for-devops
+         
+
+        - name: Install frontend dependencies via NPM
+          command: npm install
+          args:
+            chdir: /var/www/html/app-for-devops
+          become: yes
+
+        - name: Build application assets
+          command: npm run build
+          args:
+            chdir: /var/www/html/app-for-devops
+
+        - name: Add apache configuration
+          template:
+            src: laravel.conf
+            dest: /etc/apache2/sites-available/laravel.conf
+          become: yes
+
+        - name: Disable default Apache site
+          command: a2dissite 000-default.conf
+          become: yes
+
+        - name: Enable Apache rewrite module
+          command: a2enmod rewrite
+          become: yes
+
+        - name: Enable Laravel site
+          command: a2ensite laravel.conf
+          become: yes
+
+        - name: Reload Apache configuration
+          service:
+            name: apache2
+            state: reloaded
+          become: yes
+          notify: restart apache
+>>>>>>> e9479c2c97ae36b4939b5118e0389d4a23e6b3b2

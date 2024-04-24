@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ---
 - name: Setup database
   hosts: db
@@ -14,3 +15,12 @@
     - name: Run web server playbook
       include_role:
         name: server
+=======
+- name: Install and configure Apache and PostgreSQL servers
+  hosts: server:db
+  become: yes
+
+  roles:
+    - db
+    - server
+>>>>>>> e9479c2c97ae36b4939b5118e0389d4a23e6b3b2

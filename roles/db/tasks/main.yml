@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 ---
+=======
+>>>>>>> e9479c2c97ae36b4939b5118e0389d4a23e6b3b2
 - name: Install dependencies for PostgreSQL
   apt:
     name: "{{ item }}"
@@ -38,4 +41,8 @@
     privs: all
     login_unix_socket: "{{ login_unix_socket }}"
   become_user: postgres
+<<<<<<< HEAD
   notify: Restart PostgreSQL
+=======
+  notify: Restart PostgreSQL
+>>>>>>> e9479c2c97ae36b4939b5118e0389d4a23e6b3b2
