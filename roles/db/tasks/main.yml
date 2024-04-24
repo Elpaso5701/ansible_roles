@@ -33,6 +33,6 @@
     name: "{{ db_user }}"
     password: "{{ db_pass }}"
     login_user: postgres
-    login_password: ""
+    login_password: "{{ db_pass }}"
     login_host: "{{ db_host }}"
     login_unix_socket: /var/run/postgresql
