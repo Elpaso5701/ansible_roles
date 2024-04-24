@@ -1,107 +1,102 @@
-  ansible.builtin.apt_repository:
-    repo: ppa:ondrej/php
-    state: present
+- name: Configure web servers
+  hosts: server
+  tasks: 
+    - name: Install Node.js dependencies
+      apt:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - curl
+        - software-properties-common
+      become: yes
 
-- name: Install the gpg key for nodejs LTS
-  ansible.builtin.apt_key:
-    url: "https://deb.nodesource.com/gpgkey/nodesource.gpg.key"
-    state: present
+    - name: Import NodeSource GPG key
+      apt_key:
+        url: https://deb.nodesource.com/gpgkey/nodesource.gpg.key
+        state: present
+      become: yes
 
-- name: Install the nodejs LTS repos
-  ansible.builtin.apt_repository:
-    repo: "deb https://deb.nodesource.com/node_18.x {{ ansible_distribution_release }} main"
-    state: present
+    - name: Add NodeSource repository
+      apt_repository:
+        repo: "deb https://deb.nodesource.com/node_14.x {{ ansible_distribution_release }} main"
+        state: present
+        update_cache: yes
+        filename: nodesource
+      become: yes
 
-- name: Install Node.js and Apache
-  ansible.builtin.apt:
-    name:
-      - apache2
-      - nodejs
+    - name: Install Node.js
+      apt:
+        name: nodejs
+        state: present
+      become: yes
+    
+    - name: Install build-essential
+      apt:
+        name: build-essential
+        state: present
+      become: yes    
 
-- name: Installation of PHP8 and its dependencies
-  ansible.builtin.apt:
-    name:
-      - php8.2
-      - php8.2-cli
-      - php8.2-curl
-      - php8.2-bz2
-      - php8.2-mbstring
-      - php8.2-intl
-      - php8.2-xml
-      - php8.2-pgsql
+    - name: Update apt cache and install Apache web server
+      apt:
+        name: "{{ item }}"
+        state: latest
+      loop:
+        - apache2
+        - libapache2-mod-php
+        - php
+        - php-mysql
+        - php-curl
+        - php-json
+        - php-mbstring 
+        - composer
+        - php-xml
+      become: yes
+ - name: Run application tasks
+      block:
+        - name: Generate application key
+          command: php artisan key:generate
+          args:
+            chdir: /var/www/html/app-for-devops
+          
 
-- name: Install Composer
-  ansible.builtin.get_url:
-    url: https://getcomposer.org/download/latest-stable/composer.phar
-    dest: /usr/local/bin/composer
-    mode: 0755
+        - name: Run database migrations
+          command: php artisan migrate --force
+          args:
+            chdir: /var/www/html/app-for-devops
+         
 
-- name: Clone a GitHub repository
-  ansible.builtin.git:
-    repo: "{{ app_repo }}"
-    dest: ./devops_pract
-    clone: yes
-    update: yes
+        - name: Install frontend dependencies via NPM
+          command: npm install
+          args:
+            chdir: /var/www/html/app-for-devops
+          become: yes
 
-- name: Copy project to server
-  ansible.builtin.copy:
-    src: ./devops_pract/
-    dest: "{{ app_path }}"
-    remote_src: true
+        - name: Build application assets
+          command: npm run build
+          args:
+            chdir: /var/www/html/app-for-devops
 
-- name: Install dependencies from composer.json
-  ansible.builtin.composer:
-    command: install
-    working_dir: "{{ app_path }}"
-  environment:
-    COMPOSER_ALLOW_SUPERUSER: "1"
+        - name: Add apache configuration
+          template:
+            src: laravel.conf
+            dest: /etc/apache2/sites-available/laravel.conf
+          become: yes
 
-- name: Install packages based on package.json
-  community.general.npm:
-    path: "{{ app_path }}"
+        - name: Disable default Apache site
+          command: a2dissite 000-default.conf
+          become: yes
 
-- name: Write application config file
-  ansible.builtin.template:
-    src: app.conf.j2
-    dest: "{{ app_path }}/.env"
+        - name: Enable Apache rewrite module
+          command: a2enmod rewrite
+          become: yes
 
-- name: Generate artisan key
-  ansible.builtin.command:
-    cmd: php artisan key:generate
-  args:
-    chdir: "{{ app_path }}"
+        - name: Enable Laravel site
+          command: a2ensite laravel.conf
+          become: yes
 
-- name: Run db migrate
-  ansible.builtin.command:
-    cmd: php artisan migrate
-  args:
-    chdir: "{{ app_path }}"
-
-- name: Build front-end
-  ansible.builtin.command:
-    cmd: npm run build
-  args:
-    chdir: "{{ app_path }}"
-
-- name: Set permissions for user www-data
-  ansible.builtin.file:
-    path: "{{ app_path }}"
-    owner: "{{ apache_user }}"
-    group: "{{ apache_user }}"
-    mode: 0755
-    recurse: yes
-
-- name: Enable the Apache2 module mod_rewrite
-  community.general.apache2_module:
-    state: present
-    name: rewrite
-
-- name: Config Apache for application
-  ansible.builtin.template:
-    src: apache.conf.j2
-    dest: /etc/apache2/sites-available/app.conf
-
-- name: Enable application site
-  ansible.builtin.command:
-    cmd: a2ensite app
-  notify: Restart Apache
+        - name: Reload Apache configuration
+          service:
+            name: apache2
+            state: reloaded
+          become: yes
+          notify: restart apache
