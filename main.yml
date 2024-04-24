@@ -1,104 +1,16 @@
 ---
-- name: Install and configure Apache server with the application and PostgreSQL server
-  hosts: server:db
+- name: Setup database
+  hosts: db
   become: true
-  vars:
-    app_path: /var/www/app-for-devops
   tasks:
-    - name: Update apt cache
-      apt:
-        update_cache: yes
+    - name: Run database playbook
+      include_role:
+        name: db
 
-    - name: Install Apache web server
-      apt:
-        name: apache2
-        state: present
-      when: "'server' in group_names"
-
-    - name: Install PHP and required modules
-      apt:
-        name: 
-          - php
-          - libapache2-mod-php
-          - php-pgsql
-          - php-mbstring
-          - php-xml
-          - php-curl
-          - php-json
-          - composer
-        state: present
-      when: "'server' in group_names"
-
-    - name: Clone application repository
-      git:
-        repo: https://github.com/Practical-DevOps/app-for-devops.git
-        dest: "{{ app_path }}"
-        force: yes
-        version: main
-      when: "'server' in group_names"
-
-    - name: Set DB connection details in .env file
-      lineinfile:
-        dest: "{{ app_path }}/.env"
-        regexp: '^DB_{{ item.key }}='
-        line: 'DB_{{ item.key }}={{ item.value }}'
-      loop:
-        - { key: 'CONNECTION', value: 'pgsql' }
-        - { key: 'HOST', value: '{{ db_host }}' }
-        - { key: 'PORT', value: '5432' }
-        - { key: 'DATABASE', value: '{{ db_name }}' }
-        - { key: 'USERNAME', value: '{{ db_user }}' }
-        - { key: 'PASSWORD', value: '{{ db_pass }}' }
-      when: "'server' in group_names"
-
-    - name: Set permissions for user www-data
-      ansible.builtin.file:
-        path: "{{ app_path }}"
-        owner: www-data
-        group: www-data
-        mode: 0755
-        recurse: yes
-      when: "'server' in group_names"
-
-    - name: Enable mod_rewrite
-      apache2_module:
-        state: present
-        name: rewrite
-      notify:
-        - restart apache2
-      when: "'server' in group_names"
-
-    - name: Install PostgreSQL
-      apt:
-        name:
-          - postgresql
-          - postgresql-contrib
-          - python3-psycopg2
-        update_cache: yes
-      when: "'db' in group_names"
-
-    - name: Ensure PostgreSQL service is started and enabled
-      service:
-        name: postgresql
-        state: started
-        enabled: yes
-      when: "'db' in group_names"
-
-    - name: Create database
-      postgresql_db:
-        name: "{{ db_name }}"
-        state: present
-      when: "'db' in group_names"
-
-    - name: Create database user
-      postgresql_user:
-        name: "{{ db_user }}"
-        password: "{{ db_pass }}"
-        role_attr_flags: CREATEDB,CREATEROLE
-        login_host: localhost
-        login_user: postgres
-      when: "'db' in group_names"
-
-  handlers:
-    - name: restart apache2
-      service: name=apache2 state=restarted
+- name: Setup web server
+  hosts: server
+  become: true
+  tasks:
+    - name: Run web server playbook
+      include_role:
+        name: server
